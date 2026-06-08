@@ -1,5 +1,4 @@
-# get_auth.py - Reads credentials from Excel
-
+# get_auth.py
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -8,26 +7,30 @@ import pyotp
 import time
 import xlwings as xw
 
-# Read from Excel
+# Read from Excel - CORRECT CELLS
 wb = xw.Book("symbols.xlsx")
 ws = wb.sheets["LOGIN"]
 
-# Read credentials from Excel (B2:B6)
-CLIENT_ID = ws.range("B2").value
-USER_ID = ws.range("B3").value
-PASSWORD = ws.range("B4").value
-TOTP_SECRET = ws.range("B5").value
-SECRET_CODE = ws.range("B6").value
+CLIENT_ID = ws.range("B2").value      # FA78603_U
+USER_ID = ws.range("B3").value        # FA78603
+PASSWORD = ws.range("B4").value       # your password
+TOTP_SECRET = ws.range("B5").value    # your 32-char secret
+SECRET_CODE = ws.range("B6").value    # your secret code
+
+# Check if credentials exist
+if not CLIENT_ID or not USER_ID or not PASSWORD or not TOTP_SECRET:
+    print("❌ Missing credentials in Excel!")
+    print("Please fill B2, B3, B4, B5 in LOGIN sheet")
+    exit()
 
 print(f"Client ID: {CLIENT_ID}")
 print(f"User ID: {USER_ID}")
 
-# Get IP address
+# Get IP
 try:
     import requests
     response = requests.get('https://api.ipify.org', timeout=5)
     print(f"Your IP: {response.text}")
-    ws.range("C3").value = f"IP: {response.text}"
 except:
     pass
 
@@ -65,10 +68,10 @@ while True:
         code = url.split("code=")[1]
         ws.range("B7").value = code
         wb.save()
-        print("\n✅ AUTH CODE:", code)
+        print(f"\n✅ AUTH CODE: {code}")
         print("✅ Saved to Excel (B7)")
         break
     time.sleep(0.2)
 
 driver.quit()
-print("\n✅ Authentication complete! You can now run bb_trader.py")
+print("\n✅ Authentication complete!")
