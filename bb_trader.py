@@ -134,22 +134,17 @@ def Shoonya_login():
 
         api = ShoonyaApiPy()
         
-        try:
-            login_sheet = excel_name.sheets['LOGIN']
-            userid = login_sheet.range('B2').value
-            api_secret = login_sheet.range('B6').value
-            auth_code = login_sheet.range('B7').value
-            
-            if userid:
-                userid = str(userid).strip()
-            if api_secret:
-                api_secret = str(api_secret).strip()
-            if auth_code:
-                auth_code = str(auth_code).strip()
-        except:
-            userid = "FA78603"
-            api_secret = "YNZZcDn6oEMKoooJy1kdZQDnmMNbREXn0FBfCIroxRpmCe3Xfmi1PlQIBDer3Mnf"
-            auth_code = "aef096d9-a36a-4817-979a-704e104b7c9f"
+        login_sheet = excel_name.sheets['LOGIN']
+        userid = login_sheet.range('B3').value      # USER_ID at B3
+        api_secret = login_sheet.range('B6').value  # SECRET_CODE at B6
+        auth_code = login_sheet.range('B7').value   # AUTH_CODE at B7
+        
+        if userid:
+            userid = str(userid).strip()
+        if api_secret:
+            api_secret = str(api_secret).strip()
+        if auth_code:
+            auth_code = str(auth_code).strip()
         
         cred = {'client_id': f'{userid}_U', 'secret': api_secret, 'uid': userid}
         result = api.getAccessToken(auth_code, api_secret, cred['client_id'], userid)
