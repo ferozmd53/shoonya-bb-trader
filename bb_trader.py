@@ -134,25 +134,38 @@ def Shoonya_login():
             api_secret = login_sheet.range('B6').value
             auth_code = login_sheet.range('B7').value
             
-            if userid:
-                userid = str(userid).strip()
-            if api_secret:
-                api_secret = str(api_secret).strip()
-            if auth_code:
-                auth_code = str(auth_code).strip()
-        except:
-            userid = "FA78603"
-            api_secret = "YNZZcDn6oEMKoooJy1kdZQDnmMNbREXn0FBfCIroxRpmCe3Xfmi1PlQIBDer3Mnf"
-            auth_code = "aef096d9-a36a-4817-979a-704e104b7c9f"
+            if not userid or not api_secret or not auth_code:
+                print("❌ Missing credentials in LOGIN sheet!")
+                print("   Please ensure cells B3, B6, and B7 have values")
+                return 0
+                
+            userid = str(userid).strip()
+            api_secret = str(api_secret).strip()
+            auth_code = str(auth_code).strip()
+            
+            print(f"   Using credentials from LOGIN sheet")
+            
+        except Exception as e:
+            print(f"❌ Error reading LOGIN sheet: {e}")
+            print("   Please make sure you have a sheet named 'LOGIN'")
+            print("   with credentials in B3 (User ID), B6 (API Secret), and B7 (Auth Code)")
+            return 0
         
         cred = {'client_id': f'{userid}_U', 'secret': api_secret, 'uid': userid}
         result = api.getAccessToken(auth_code, api_secret, cred['client_id'], userid)
-        
+#        print(result)
         if result:
             acc_tok, usrid, ref_tok, actid = result
+#            login_sheet = excel_name.sheets['LOGIN']
+            acess_token = login_sheet.range('B9').value =     acc_tok       
+            user_token = login_sheet.range('B10').value =    ref_tok
+            print("✅ TOKEN")
             api.injectOAuthHeader(acc_tok, userid, actid)
             print("✅ Login Successful!")
             return 1
+        else:
+            print("❌ Login failed - Invalid credentials or network issue")
+            
     except Exception as e:
         print(f"Login error: {e}")
     return 0
