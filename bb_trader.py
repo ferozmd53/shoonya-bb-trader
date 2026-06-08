@@ -135,9 +135,11 @@ def Shoonya_login():
         api = ShoonyaApiPy()
         
         login_sheet = excel_name.sheets['LOGIN']
-        userid = login_sheet.range('B3').value      # USER_ID at B3
-        api_secret = login_sheet.range('B6').value  # SECRET_CODE at B6
-        auth_code = login_sheet.range('B7').value   # AUTH_CODE at B7
+        
+        # CORRECTED: Read from correct cells
+        userid = login_sheet.range('B3').value      # USER_ID
+        api_secret = login_sheet.range('B6').value  # SECRET_CODE
+        auth_code = login_sheet.range('B7').value   # AUTH_CODE
         
         if userid:
             userid = str(userid).strip()
@@ -145,6 +147,9 @@ def Shoonya_login():
             api_secret = str(api_secret).strip()
         if auth_code:
             auth_code = str(auth_code).strip()
+        
+        print(f"User ID: {userid}")
+        print(f"Auth Code: {auth_code[:20]}...")
         
         cred = {'client_id': f'{userid}_U', 'secret': api_secret, 'uid': userid}
         result = api.getAccessToken(auth_code, api_secret, cred['client_id'], userid)
@@ -154,9 +159,12 @@ def Shoonya_login():
             api.injectOAuthHeader(acc_tok, userid, actid)
             print("✅ Login Successful!")
             return 1
+        else:
+            print("❌ Login result is None")
+            return 0
     except Exception as e:
         print(f"Login error: {e}")
-    return 0
+        return 0
 
 # ============================================
 # GET TOKEN
