@@ -32,6 +32,7 @@ try:
     import requests
     response = requests.get('https://api.ipify.org', timeout=5)
     print(f"Your IP: {response.text}")
+    ws.range("C11").value = response.text
 except:
     pass
 
