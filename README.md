@@ -1,4 +1,4 @@
-# Shoonya Bollinger Bands Trading System
+# Shoonya REAL TIME ALL HISTORICAL DATA WITH TICK WITH Bollinger Bands Trading System
 
 ## Installation
 
