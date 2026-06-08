@@ -64,7 +64,7 @@ def safe_int(value, default=0):
     return default
 
 # ============================================
-# BOLLINGER BANDS - FIXED
+# BOLLINGER BANDS
 # ============================================
 
 class IncrementalBollingerBands:
@@ -72,7 +72,7 @@ class IncrementalBollingerBands:
         self.period = period
         self.num_std = num_std
         self.symbol = symbol
-        self.daily_closes = []  # Store daily closing prices
+        self.daily_closes = []
         self.today_ltp = 0
         self.sma = None
         self.upper = None
@@ -80,25 +80,19 @@ class IncrementalBollingerBands:
         self.initialized = False
         
     def set_daily_closes(self, closes):
-        """Set daily closing prices from API"""
         self.daily_closes = closes.copy()
         
     def add_today_price(self, price):
-        """Add today's LTP and calculate BB"""
         if price <= 0:
             return
         self.today_ltp = price
         self.calculate_bb()
         
     def calculate_bb(self):
-        """Calculate BB using last 9 daily closes + today's LTP"""
         if len(self.daily_closes) >= self.period - 1 and self.today_ltp > 0:
-            # Take last 9 daily closes
             hist_closes = self.daily_closes[-(self.period - 1):]
-            # Add today's LTP
             all_prices = hist_closes + [self.today_ltp]
             
-            # Calculate BB
             self.sma = sum(all_prices) / self.period
             variance = sum((x - self.sma) ** 2 for x in all_prices) / self.period
             std = variance ** 0.5
@@ -182,11 +176,10 @@ def GetToken(exchange, tradingsymbol):
     return None
 
 # ============================================
-# FETCH COMPLETE HISTORICAL DATA (SINGLE SOURCE)
+# FETCH HISTORICAL DATA
 # ============================================
 
 def fetch_historical_data(symbol):
-    """Fetch historical data - SINGLE SOURCE for everything"""
     try:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=40)
@@ -230,13 +223,9 @@ def fetch_historical_data(symbol):
         if len(df) < Config.BB_PERIOD + 1:
             return None
         
-        # Get all daily closes (for today's BB calculation)
         daily_closes = df['close'].tolist()
-        
-        # Yesterday's data
         yesterday = df.iloc[-1]
         
-        # Calculate yesterday's BB using last 10 daily closes (all historical)
         last_10_closes = df.iloc[-Config.BB_PERIOD:]['close'].tolist()
         sma_y = sum(last_10_closes) / Config.BB_PERIOD
         variance_y = sum((x - sma_y) ** 2 for x in last_10_closes) / Config.BB_PERIOD
@@ -288,6 +277,7 @@ def on_ticks(tick):
             d['open'] = safe_float(tick.get('o', d.get('open', 0)))
             d['high'] = safe_float(tick.get('h', d.get('high', 0)))
             d['low'] = safe_float(tick.get('l', d.get('low', 0)))
+            d['close'] = safe_float(tick.get('c', d.get('close', 0)))
             d['volume'] = safe_int(tick.get('v', d.get('volume', 0)))
             d['timestamp'] = datetime.now()
             
@@ -303,7 +293,6 @@ def on_ticks(tick):
                 d['bb_middle'] = sma
                 d['bb_lower'] = lower
                 
-                # Print first few ticks for debugging
                 if tick_count <= 10:
                     print(f"   Today's BB for {symbol}: Upper={upper:.2f}, Middle={sma:.2f}, Lower={lower:.2f}")
     except:
@@ -371,14 +360,13 @@ def check_new_symbols():
                         symbol_tokens[symbol] = tk
                         token_symbols[token] = symbol
                         live_data[tk] = {
-                            'ltp': 0, 'open': 0, 'high': 0, 'low': 0,
+                            'ltp': 0, 'open': 0, 'high': 0, 'low': 0, 'close': 0,
                             'volume': 0, 'symbol': symbol, 'first_tick': True,
                             'timestamp': None, 'bb_upper': 0, 'bb_middle': 0, 'bb_lower': 0
                         }
                         indicators[symbol] = IncrementalBollingerBands(Config.BB_PERIOD, Config.BB_STD, symbol)
                         new_tokens.append(tk)
                         
-                        # Fetch historical data from SINGLE source
                         hist_data = fetch_historical_data(symbol)
                         if hist_data:
                             indicators[symbol].set_daily_closes(hist_data['daily_closes'])
@@ -396,7 +384,7 @@ def check_new_symbols():
         pass
 
 # ============================================
-# UPDATE EXCEL
+# UPDATE EXCEL - HISTORICAL DATA AT COLUMN M
 # ============================================
 
 def update_excel_bulk():
@@ -418,8 +406,8 @@ def update_excel_bulk():
         
         for symbol_cell in symbols_data:
             if not symbol_cell:
-                live_rows.append([''] * 12)
-                hist_rows.append([''] * 10)
+                live_rows.append([''] * 10)
+                hist_rows.append([''] * 9)
                 continue
             
             symbol = str(symbol_cell).strip().upper()
@@ -437,19 +425,7 @@ def update_excel_bulk():
                 bb_middle = d.get('bb_middle', 0)
                 bb_lower = d.get('bb_lower', 0)
                 
-                change_percent = 0
-                if d.get('open', 0) > 0:
-                    change_percent = ((ltp - d['open']) / d['open']) * 100
-                
-                signal = "WAITING"
-                if ltp > 0 and bb_upper > 0:
-                    if ltp <= bb_lower:
-                        signal = "BUY"
-                    elif ltp >= bb_upper:
-                        signal = "SELL"
-                    else:
-                        signal = "HOLD"
-                
+                # Live data row - 10 columns (B to K)
                 live_rows.append([
                     ltp if ltp > 0 else '',
                     d.get('open', 0) if d.get('open', 0) > 0 else '',
@@ -460,15 +436,12 @@ def update_excel_bulk():
                     round(bb_upper, 2) if bb_upper else '',
                     round(bb_middle, 2) if bb_middle else '',
                     round(bb_lower, 2) if bb_lower else '',
-                    signal,
-                    d['timestamp'].strftime('%H:%M:%S') if d['timestamp'] else '',
-                    round(change_percent, 2) if change_percent != 0 else ''
+                    d['timestamp'].strftime('%H:%M:%S') if d['timestamp'] else ''
                 ])
                 
-                # Historical data
+                # Historical data - 9 columns (M to U)
                 hist = historical_data_cache.get(symbol)
                 if hist:
-                    change_hist = ((hist['close'] - hist['open']) / hist['open'] * 100) if hist['open'] > 0 else 0
                     hist_rows.append([
                         hist['date'],
                         hist['open'] if hist['open'] > 0 else '',
@@ -478,33 +451,54 @@ def update_excel_bulk():
                         hist['volume'] if hist['volume'] > 0 else '',
                         round(hist['bb_upper'], 2) if hist['bb_upper'] else '',
                         round(hist['bb_middle'], 2) if hist['bb_middle'] else '',
-                        round(hist['bb_lower'], 2) if hist['bb_lower'] else '',
-                        round(change_hist, 2) if change_hist != 0 else ''
+                        round(hist['bb_lower'], 2) if hist['bb_lower'] else ''
                     ])
                 else:
-                    hist_rows.append([''] * 10)
+                    hist_rows.append([''] * 9)
             else:
-                live_rows.append([''] * 12)
-                hist_rows.append([''] * 10)
+                live_rows.append([''] * 10)
+                hist_rows.append([''] * 9)
         
-        if live_rows:
-            ws.range(f"B2:M{2 + len(live_rows) - 1}").value = live_rows
-        if hist_rows:
-            ws.range(f"R2:AA{2 + len(hist_rows) - 1}").value = hist_rows
+        # Update Excel with error handling
+        try:
+            if live_rows:
+                # Live data: B2 to K (columns 2 to 11)
+                ws.range(f"B2:K{2 + len(live_rows) - 1}").value = live_rows
+            
+            if hist_rows:
+                # Historical data: M2 to U (columns 13 to 21)
+                ws.range(f"M2:U{2 + len(hist_rows) - 1}").value = hist_rows
+                
+        except Exception as write_error:
+            # Silently skip if Excel is in edit mode
+            if "Member not found" not in str(write_error) and "-2147352573" not in str(write_error):
+                print(f"Excel write error: {write_error}")
             
     except Exception as e:
-        pass
+        if "Member not found" not in str(e) and "-2147352573" not in str(e):
+            print(f"Excel update error: {e}")
 
 # ============================================
-# SETUP HEADERS
+# SETUP HEADERS - HISTORICAL AT COLUMN M
 # ============================================
 
 def setup_excel_headers():
     try:
         ws = excel_name.sheets['symbols']
         
+        # Clear existing headers
+        ws.range("1:1").clear_contents()
+        
+        # SYMBOL header (Column A)
+        ws.range('A1').value = 'Symbol'
+        ws.range('A1').color = (54, 96, 146)
+        ws.range('A1').font.color = (255, 255, 255)
+        ws.range('A1').font.bold = True
+        
+        # LIVE DATA HEADERS - Columns B to K (10 columns)
+        # B=LTP, C=Open, D=High, E=Low, F=Close, G=Volume, H=BB Upper, I=BB Middle, J=BB Lower, K=Last Update
         live_headers = ['LTP', 'Open', 'High', 'Low', 'Close', 'Volume',
-                        'BB Upper', 'BB Middle', 'BB Lower', 'Signal', 'Last Update', 'Change %']
+                        'BB Upper', 'BB Middle', 'BB Lower', 'Last Update']
         
         for col_idx, header in enumerate(live_headers, start=2):
             cell = ws.range((1, col_idx))
@@ -513,32 +507,30 @@ def setup_excel_headers():
             cell.font.color = (255, 255, 255)
             cell.font.bold = True
         
+        # HISTORICAL DATA HEADERS - Columns M to U (9 columns)
+        # M=Date, N=Open, O=High, P=Low, Q=Close, R=Volume, S=BB Upper, T=BB Middle, U=BB Lower
         hist_headers = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume',
-                        'BB Upper', 'BB Middle', 'BB Lower', 'Change %']
+                        'BB Upper', 'BB Middle', 'BB Lower']
         
-        for col_idx, header in enumerate(hist_headers, start=18):
+        for col_idx, header in enumerate(hist_headers, start=13):
             cell = ws.range((1, col_idx))
             cell.value = header
             cell.color = (146, 96, 54)
             cell.font.color = (255, 255, 255)
             cell.font.bold = True
         
-        ws.range('A:A').column_width = 20
-        ws.range('B:G').column_width = 12
-        ws.range('H:J').column_width = 15
-        ws.range('K:K').column_width = 12
-        ws.range('L:L').column_width = 15
-        ws.range('M:M').column_width = 12
-        ws.range('R:R').column_width = 12
-        ws.range('S:W').column_width = 12
-        ws.range('X:Z').column_width = 15
-        ws.range('AA:AA').column_width = 12
+        # Clear any old headers in between
+        ws.range('L1').value = ''  # Column L is empty separator
         
-        excel_name.save()
-        print("✅ Excel headers configured")
+        # Set column widths
+        ws.range('A:A').column_width = 20      # Symbol
+        ws.range('B:K').column_width = 12      # Live data (10 columns)
+        ws.range('L:L').column_width = 3       # Separator
+        ws.range('M:U').column_width = 12      # Historical data (9 columns)
+
         return True
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error setting up headers: {e}")
         return False
 
 # ============================================
@@ -614,7 +606,7 @@ def main():
     global indicators, historical_data_cache
     
     print("\n" + "="*80)
-    print("🚀 10-PERIOD BOLLINGER BANDS TRADING SYSTEM")
+    print("🚀 BOLLINGER BANDS TRADING SYSTEM")
     print("="*80)
     
     print("\n[1/4] Setting up Excel...")
@@ -622,14 +614,15 @@ def main():
     
     print("\n[2/4] Logging to Shoonya...")
     if not Shoonya_login():
-        print("❌ Login failed!")
+        print("❌ Login failed! Check your LOGIN sheet in Excel.")
         return
     
-    print("\n[3/4] Reading symbols...")
+    print("\n[3/4] Reading symbols from Column A...")
     symbols = read_symbols_from_excel()
     
     if not symbols:
         default = ["RELIANCE-EQ", "TCS-EQ", "INFY-EQ"]
+        print(f"⚠️ No symbols found, adding default symbols to column A")
         for i, sym in enumerate(default, start=2):
             excel_name.sheets['symbols'].range(f"A{i}").value = sym
         excel_name.save()
@@ -638,9 +631,10 @@ def main():
     
     print(f"📋 Processing {len(symbols)} symbols...")
     
-    print("\n[4/4] Initializing...")
+    print("\n[4/4] Initializing symbols...")
     tokens = []
     for i, symbol in enumerate(symbols, 1):
+        print(f"   [{i:2}/{len(symbols)}] {symbol}...", end=" ")
         token = GetToken("NSE", symbol)
         if token:
             tk = f"NSE|{token}"
@@ -655,40 +649,58 @@ def main():
             indicators[symbol] = IncrementalBollingerBands(Config.BB_PERIOD, Config.BB_STD, symbol)
             tokens.append(tk)
             
-            # Fetch historical data from SINGLE source
             hist_data = fetch_historical_data(symbol)
             if hist_data:
                 indicators[symbol].set_daily_closes(hist_data['daily_closes'])
                 historical_data_cache[symbol] = hist_data['yesterday']
-                print(f"   [{i:2}/{len(symbols)}] ✓ {symbol} - {hist_data['yesterday']['date']}")
+                print(f"✓ (Historical: {hist_data['yesterday']['date']})")
             else:
-                print(f"   [{i:2}/{len(symbols)}] ✓ {symbol}")
+                print(f"✓ (No historical data)")
         else:
-            print(f"   [{i:2}/{len(symbols)}] ✗ {symbol}")
+            print(f"✗ FAILED - Token not found")
         time.sleep(0.03)
     
     print(f"\n✅ Initialized {len(tokens)} symbols")
     
-    print("\nStarting WebSocket...")
-    api.start_websocket(
-        subscribe_callback=on_ticks,
-        order_update_callback=on_order,
-        socket_open_callback=on_open,
-        socket_close_callback=on_close
-    )
+    if len(tokens) == 0:
+        print("❌ No symbols initialized! Exiting.")
+        return
     
-    for _ in range(15):
+    print("\nStarting WebSocket connection...")
+    
+    try:
+        api.start_websocket(
+            subscribe_callback=on_ticks,
+            order_update_callback=on_order,
+            socket_open_callback=on_open,
+            socket_close_callback=on_close
+        )
+        
+        print("   Waiting for WebSocket to connect...")
+        for _ in range(15):
+            if feed_opened:
+                break
+            time.sleep(1)
+            print(f"   ... waiting ({_+1}/15)")
+        
         if feed_opened:
-            break
-        time.sleep(1)
-    
-    if feed_opened:
-        if tokens:
-            subscribe_symbols(tokens)
-            print(f"✓ Subscribed to {len(tokens)} symbols\n")
-        start_excel_loop()
-    else:
-        print("❌ Connection failed!")
+            print("✅ WebSocket connected!")
+            if tokens:
+                print(f"\n📡 Subscribing to {len(tokens)} symbols...")
+                subscribe_symbols(tokens)
+                print(f"✓ Subscribed to all symbols")
+            print("\n🚀 Starting real-time data feed...")
+            print("   Data updates every 0.2 seconds")
+            print("   Column Layout:")
+            print("     - Live Data: Columns B to K (LTP, Open, High, Low, Close, Volume, BB Upper, BB Middle, BB Lower, Last Update)")
+            print("     - Historical: Columns M to U (Date, Open, High, Low, Close, Volume, BB Upper, BB Middle, BB Lower)")
+            print("\n   NOTE: If you click on a cell, updates will pause until you press Enter\n")
+            start_excel_loop()
+        else:
+            print("❌ WebSocket connection failed after 15 seconds!")
+            
+    except Exception as e:
+        print(f"❌ Failed to start WebSocket: {e}")
 
 if __name__ == "__main__":
     main()
