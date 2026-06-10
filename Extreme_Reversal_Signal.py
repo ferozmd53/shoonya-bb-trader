@@ -522,12 +522,14 @@ def update_excel_bulk():
         if not symbols_list:
             return
         
-        # Prepare data for columns B to Q
+        # Prepare data for columns B to Q (16 columns total: B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q)
+        # That's 16 columns from B to Q
         data_rows = []
         
         for symbol_val in symbols_list:
             if not symbol_val:
-                data_rows.append([''] * 15)  # B to P = 15 columns (B through P)
+                # Empty row - 16 empty strings for columns B to Q
+                data_rows.append([''] * 16)
                 continue
             
             symbol = str(symbol_val).strip().upper()
@@ -540,28 +542,30 @@ def update_excel_bulk():
             
             if tk and tk in live_data:
                 d = live_data[tk]
+                # 16 columns: B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q
                 data_rows.append([
-                    d.get('ltp', ''),
-                    d.get('open', ''),
-                    d.get('high', ''),
-                    d.get('low', ''),
-                    d.get('close', ''),
-                    d.get('volume', ''),
-                    d.get('rsi', ''),
-                    d.get('stoch_rsi', ''),
-                    d.get('sma_stoch', ''),
-                    d.get('bb_upper', ''),
-                    d.get('bb_middle', ''),
-                    d.get('bb_lower', ''),
-                    d.get('buy', ''),
-                    d.get('sell', ''),
-                    d.get('signal', ''),
-                    d['timestamp'].strftime('%H:%M:%S') if d.get('timestamp') else ''
+                    d.get('ltp', ''),           # B
+                    d.get('open', ''),          # C
+                    d.get('high', ''),          # D
+                    d.get('low', ''),           # E
+                    d.get('close', ''),         # F
+                    d.get('volume', ''),        # G
+                    d.get('rsi', ''),           # H
+                    d.get('stoch_rsi', ''),     # I
+                    d.get('sma_stoch', ''),     # J
+                    d.get('bb_upper', ''),      # K
+                    d.get('bb_middle', ''),     # L
+                    d.get('bb_lower', ''),      # M
+                    d.get('buy', ''),           # N
+                    d.get('sell', ''),          # O
+                    d.get('signal', ''),        # P
+                    d['timestamp'].strftime('%H:%M:%S') if d.get('timestamp') else ''  # Q
                 ])
             else:
-                data_rows.append([''] * 16)  # B to Q = 16 columns (B through Q)
+                # Symbol exists but not initialized yet - 16 empty strings
+                data_rows.append([''] * 16)
         
-        # Update ONLY columns B to Q (NOT column A)
+        # Update ONLY columns B to Q (16 columns)
         if data_rows:
             ws.range(f"B2:Q{2 + len(data_rows) - 1}").value = data_rows
             
