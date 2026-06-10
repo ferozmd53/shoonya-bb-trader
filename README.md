@@ -1,5 +1,6 @@
 # Shoonya StochRSI Trading System
-
+# DISCLAIMER
+# This software is for educational and research purposes only.
 ## Installation
 ```bash
 pip uninstall Shoonya-Multi-Symbol-Live-Historical-Data-with-Indicators -y
